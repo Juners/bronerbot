@@ -1,6 +1,6 @@
 import {
   DynamoDBClient,
-  PutItemCommand,
+  UpdateItemCommand,
   ScanCommand,
 } from "@aws-sdk/client-dynamodb";
 
@@ -12,23 +12,20 @@ import {
  */
 async function writeEmoteUsage(client, date, emotes) {
   try {
-    const id = `${Date.now()}`;
+    console.debug(emotes);
+    const m = new Date().getMonth();
     const params = {
       TableName: "lina_emotes_data",
-      Item: {
-        uuid: {
-          S: id,
-        },
-        date: {
-          S: `${date}`,
-        },
-        json: {
-          S: emotes,
-        },
+      Key: {
+        month: { N: `${m}` },
+      },
+      UpdateExpression: "SET json = :val",
+      ExpressionAttributeValues: {
+        ":val": { S: emotes },
       },
     };
 
-    const putCommand = new PutItemCommand(params);
+    const putCommand = new UpdateItemCommand(params);
     await client.send(putCommand);
 
     return true;
@@ -69,7 +66,7 @@ export async function getStoredEmoteData() {
     const item = (await client.send(scanCommand)).Items[0];
     if (!item) return { twitch: {}, seventv: {} };
 
-    const emoteData = { date: item.date.S, json: item.json.S };
+    const emoteData = { json: item.json.S };
 
     return JSON.parse(emoteData.json);
   } catch (e) {
