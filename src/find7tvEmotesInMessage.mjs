@@ -33,5 +33,10 @@ export default function find7tvEmotesInMessage(
     });
   });
 
-  return emotesUsed;
+  return Object.fromEntries(
+    Object.entries(emotesUsed).map(([k, v]) => {
+      delete v.__li;
+      return [k, v];
+    })
+  );
 }
