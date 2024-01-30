@@ -12,7 +12,7 @@ import {
  */
 async function writeEmoteUsage(client, date, emotes) {
   try {
-    const id = crypto.randomBytes(16).toString("hex");
+    const id = `${Date.now()}`;
     const params = {
       TableName: "lina_emotes_data",
       Item: {
@@ -20,7 +20,7 @@ async function writeEmoteUsage(client, date, emotes) {
           S: id,
         },
         date: {
-          N: date,
+          S: `${date}`,
         },
         json: {
           S: emotes,
@@ -69,6 +69,8 @@ export async function getStoredEmoteData() {
     });
 
     const item = (await client.send(scanCommand)).Items[0];
+    if (!item) return { twitch: {}, seventv: {} };
+
     const emoteData = { date: item.date.N, json: item.json.S };
 
     return JSON.parse(emoteData.json);

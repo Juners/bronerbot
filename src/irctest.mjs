@@ -163,9 +163,11 @@ setInterval(() => {
   if (Object.keys(pendingToStore).length > 0) {
     const timeKey = new Date().setMilliseconds(0) - 5000; // Delay of 5 seconds to store changes
     var storing = pendingToStore[timeKey];
-    updateEmoteUsage(storing, timeKey).then(() => {
-      delete pendingToStore[timeKey];
-    });
+    if (storing) {
+      updateEmoteUsage(storing, timeKey).then(() => {
+        delete pendingToStore[timeKey];
+      });
+    }
   }
 }, 1000);
 
