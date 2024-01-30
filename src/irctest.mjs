@@ -216,6 +216,9 @@ function onConnect(connection) {
               emotesUsed.twitch[emoteId] = {
                 realAmmount: 0,
                 ammount: 0,
+                data: {
+                  ...channelEmotes[emoteId],
+                },
               };
             }
 

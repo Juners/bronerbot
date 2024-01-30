@@ -69,6 +69,7 @@ export async function getStoredEmoteData() {
     });
 
     const item = (await client.send(scanCommand)).Items[0];
+    console.debug(item);
     if (!item) return { twitch: {}, seventv: {} };
 
     const emoteData = { date: item.date.N, json: item.json.S };
