@@ -207,7 +207,7 @@ function onConnect(connection) {
   connection.sendUTF(`PASS oauth:${SECRETS.APP_TOKEN}`);
   connection.sendUTF("NICK broner_bot");
 
-  connection.sendUTF("JOIN #juners");
+  connection.sendUTF("JOIN #nekrolina");
 
   connection.on("close", function (code, desc) {
     log(`Socket closing with code ${code}. Message: ${desc}`);
