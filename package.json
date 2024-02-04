@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "pm2 start src/irctest.mjs",
+    "list": "pm2 list",
     "restart": "pm2 restart all",
     "stop": "pm2 stop all",
     "monitor": "pm2 monit",

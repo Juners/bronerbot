@@ -11,6 +11,12 @@ const { client: WebSocketClient } = wsPkg;
 const BROADCASTER_ID = 697578274; // Lina
 const EMOTE_SET = "62d73f58d8e61c27b053c09a"; // Lina's emoteset
 
+const error = (origin, error) => {
+  const now = new Date();
+  const time = `[${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}:${now.getMilliseconds()}]`;
+  console.error(time,  origin, error);
+};
+
 const log = (message) => {
   const now = new Date();
   const time = `[${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}:${now.getMilliseconds()}]`;
@@ -37,7 +43,7 @@ const log = (message) => {
 
 //     return access_token;
 //   } catch (e) {
-//     console.error("getAccesToken", e);
+//     error("getAccesToken", e);
 //     return null;
 //   }
 // }
@@ -53,7 +59,7 @@ async function validateAccessToken(token) {
   );
 
   if (status === 401) {
-    console.error("Token not valid", statusMessage);
+    error("Token not valid", statusMessage);
     throw new Error();
   }
 }
@@ -100,7 +106,7 @@ async function update7tvEmotesCached() {
       seventvEmoteData = new7tvData;
     }
   } catch (error) {
-    console.error("update7tvEmotesCached", error);
+    error("update7tvEmotesCached", error);
   }
 }
 
@@ -155,7 +161,7 @@ async function updateChannelEmotesCached() {
       twitchEmoteData = newChannelData;
     }
   } catch (error) {
-    console.error("updateChannelEmotesCached", error);
+    error("updateChannelEmotesCached", error);
   }
 }
 

@@ -4,6 +4,12 @@ import {
   ScanCommand,
 } from "@aws-sdk/client-dynamodb";
 
+const error = (origin, error) => {
+  const now = new Date();
+  const time = `[${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}:${now.getMilliseconds()}]`;
+  console.error(time,  origin, error);
+};
+
 /**
  *
  * @param {DynamoDBClient} client
@@ -30,7 +36,7 @@ async function writeEmoteUsage(client, date, emotes) {
 
     return true;
   } catch (e) {
-    console.error("writeEmoteUsage", e);
+    error("writeEmoteUsage", e);
     return null;
   }
 }
@@ -70,7 +76,7 @@ export async function getStoredEmoteData() {
 
     return JSON.parse(emoteData.json);
   } catch (e) {
-    console.error("getStoredEmoteData", e);
+    error("getStoredEmoteData", e);
     return JSON.stringify(e, null, 2);
   }
 }
