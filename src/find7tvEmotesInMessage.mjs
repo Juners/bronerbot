@@ -12,6 +12,7 @@ export default function find7tvEmotesInMessage(
   if (!message) return {};
 
   message.split("\r\n").forEach((message, i) => {
+    // TODO: Change part for ID
     message.split(" ").forEach((part) => {
       let is7tvEmote = seventvEmotes[part];
 

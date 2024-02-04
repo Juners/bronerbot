@@ -73,10 +73,19 @@ async function get7tvEmotes() {
   ) {
     last7tvRetrieval = Date.now();
 
+     // Queueing in parallel the update, so we don't block the storage of messages
+    update7tvEmotesCached();
+  }
+
+  return seventvEmoteData;
+}
+
+async function update7tvEmotesCached() {
+  try {
     const call = await fetch(`https://7tv.io/v3/emote-sets/${EMOTE_SET}`);
 
     const json = await call.json();
-    seventvEmoteData = Object.fromEntries(
+    const new7tvData = Object.fromEntries(
       json.emotes.map((emote) => [
         emote.name,
         {
@@ -86,9 +95,13 @@ async function get7tvEmotes() {
         },
       ])
     );
+    
+    if (JSON.stringify(seventvEmoteData) !== JSON.stringify(new7tvData)) {
+      seventvEmoteData = new7tvData;
+    }
+  } catch (error) {
+    console.error("update7tvEmotesCached", error);
   }
-
-  return seventvEmoteData;
 }
 
 /**
@@ -105,6 +118,15 @@ async function getChannelEmotes() {
   ) {
     lastChannelRetrieval = Date.now();
 
+     // Queueing in parallel the update, so we don't block the storage of messages
+    updateChannelEmotesCached();
+  }
+
+  return twitchEmoteData;
+}
+
+async function updateChannelEmotesCached() {
+  try {
     const call = await fetch(
       `https://api.twitch.tv/helix/chat/emotes?broadcaster_id=${BROADCASTER_ID}`,
       {
@@ -116,7 +138,7 @@ async function getChannelEmotes() {
     );
 
     const json = await call.json();
-    twitchEmoteData = Object.fromEntries(
+    const newChannelData = Object.fromEntries(
       json.data.map((emote) => [
         emote.id,
         {
@@ -128,9 +150,13 @@ async function getChannelEmotes() {
         },
       ])
     );
+    
+    if (JSON.stringify(twitchEmoteData) !== JSON.stringify(newChannelData)) {
+      twitchEmoteData = newChannelData;
+    }
+  } catch (error) {
+    console.error("updateChannelEmotesCached", error);
   }
-
-  return twitchEmoteData;
 }
 
 // var cachedGlobalEmoteData = null;
@@ -161,7 +187,7 @@ async function getChannelEmotes() {
 var pendingToStore = {};
 setInterval(() => {
   if (Object.keys(pendingToStore).length > 0) {
-    const timeKey = new Date().setMilliseconds(0) - 5000; // Delay of 5 seconds to store changes
+    const timeKey = new Date().setMilliseconds(0);
     var storing = pendingToStore[timeKey];
     if (storing) {
       updateEmoteUsage(storing, timeKey).then(() => {
