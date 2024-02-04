@@ -187,7 +187,7 @@ async function updateChannelEmotesCached() {
 var pendingToStore = {};
 setInterval(() => {
   if (Object.keys(pendingToStore).length > 0) {
-    const timeKey = new Date().setMilliseconds(0);
+    const timeKey = new Date().setMilliseconds(0) - 1000; // 1s delay for storage
     var storing = pendingToStore[timeKey];
     if (storing) {
       updateEmoteUsage(storing, timeKey).then(() => {
