@@ -1,15 +1,16 @@
 import { WebSocket } from "ws";
 
 import find7tvEmotesInMessage from "./find7tvEmotesInMessage.mjs";
+import findChannelEmotesInMessage from "./findChannelEmotesInMessage.mjs";
 import parseMessage from "./formatMessage.mjs";
 import { getStoredEmoteData, updateEmoteUsage } from "./dbManagement.mjs";
 import SECRETS from "./secrets.mjs";
 
-// const { client: WebSocketClient } = wsPkg;
-
 // const BROADCASTER_ID = 1027570501; // Myself
 const BROADCASTER_ID = 697578274; // Lina
 const EMOTE_SET = "62d73f58d8e61c27b053c09a"; // Lina's emoteset
+
+let emotesUsed = { twitch: {}, seventv: {} };
 
 const error = (origin, error) => {
   const now = new Date();
@@ -67,9 +68,9 @@ async function validateAccessToken(token) {
 /**
  * @type {Object.<string, {id: string, name: string, animated: boolean, listed: boolean} }>}
  */
-var seventvEmoteData = {};
-var last7tvRetrieval = null;
-async function get7tvEmotes() {
+let seventvEmoteData = {};
+let last7tvRetrieval = null;
+function get7tvEmotes() {
   // Checking each minute
   // https://7tv.io/v3/emote-sets/62d73f58d8e61c27b053c09a
   if (
@@ -113,9 +114,9 @@ async function update7tvEmotesCached() {
 /**
  * @type {Object.<string, {tier: 1000|2000|3000, name: string, scale: ["1.0", "2.0", "3.0"], theme_mode: ["light", "dark"], format: ["static", "animated"]}}>}
  */
-var twitchEmoteData = {};
-var lastChannelRetrieval = null;
-async function getChannelEmotes() {
+let twitchEmoteData = {};
+let lastChannelRetrieval = null;
+function getChannelEmotes() {
   // Checking each minute
   if (
     lastChannelRetrieval === null ||
@@ -165,8 +166,8 @@ async function updateChannelEmotesCached() {
   }
 }
 
-// var cachedGlobalEmoteData = null;
-// var lastGlobalRetrieval = null;
+// let cachedGlobalEmoteData = null;
+// let lastGlobalRetrieval = null;
 // async function getGlobalEmotes() {
 //   // idc enough about this ones, checking each hour
 //   if (
@@ -190,26 +191,59 @@ async function updateChannelEmotesCached() {
 // }
 
 // TODO: I should save message-id in the db to prevent duplicates, need to check how cost effective this would be with AWS
-var pendingToStore = {};
+let pendingToStore = {};
 setInterval(() => {
   if (Object.keys(pendingToStore).length > 0) {
     const timeKey = new Date().setMilliseconds(0) - 1000; // 1s delay for storage
-    var storing = pendingToStore[timeKey];
-    if (storing) {
-      updateEmoteUsage(storing, timeKey).then(() => {
-        delete pendingToStore[timeKey];
-      });
+    let messages = pendingToStore[timeKey];
+    if (messages) {
+      updateEmotes(messages, timeKey)
+        .then(() => {
+          delete pendingToStore[timeKey];
+        })
+        .catch(() => {
+          const newTimeKey = new Date().setMilliseconds(0) + 1000; // Moving it to the next try
+          pendingToStore[newTimeKey];
+        });
     }
   }
 }, 1000);
 
-var emotesUsed = { twitch: {}, seventv: {} };
+async function updateEmotes(messages, timeKey) {
+  try {
+    const channelEmotes = getChannelEmotes();
+    const seventvEmotes = get7tvEmotes();
+
+    messages.forEach((messageJson) => {
+      const message = JSON.parse(messageJson);
+      findChannelEmotesInMessage(
+        emotesUsed.twitch,
+        channelEmotes,
+        message.tags.emotes
+      );
+
+      find7tvEmotesInMessage(
+        emotesUsed.seventv,
+        seventvEmotes,
+        message.parameters
+      );
+    });
+
+    await updateEmoteUsage(JSON.stringify(emotesUsed), timeKey);
+
+    return Promise.resolve();
+  } catch (error) {
+    return Promise.reject();
+  }
+}
+
 /**
- *
  * @this {WebSocket}
  */
 async function onConnect() {
-  // emotesUsed = await getStoredEmoteData();
+  get7tvEmotes();
+  getChannelEmotes();
+  emotesUsed = await getStoredEmoteData();
 
   log("WebSocket Client Connected");
 
@@ -219,7 +253,7 @@ async function onConnect() {
   this.send(`PASS oauth:${SECRETS.APP_TOKEN}`);
   this.send("NICK broner_bot");
 
-  this.send("JOIN #juners");
+  this.send("JOIN #nekrolina");
 
   this.on("close", function (code, desc) {
     log(`Socket closing with code ${code}. Message: ${desc}`);
@@ -244,50 +278,13 @@ async function onConnect() {
       this.pong(message.parameters);
       log("ponging");
     } else if (message.command.command === "PRIVMSG") {
-      const channelEmotes = await getChannelEmotes();
-      const seventvEmotes = await get7tvEmotes();
       // const globalEmotes = await getGlobalEmotes(); // TODO: Maybe use these? I can't really be bothered tbh
 
-      let emotesChanged = false;
-
-      // First, we get the channel twitch emotes
-      Object.entries(message.tags.emotes || {}).forEach(
-        ([emoteId, emotesPos]) => {
-          emotesChanged = true;
-          if (channelEmotes[emoteId]) {
-            if (emotesUsed.twitch[emoteId] === undefined) {
-              emotesUsed.twitch[emoteId] = {
-                realAmmount: 0,
-                ammount: 0,
-                data: {
-                  ...channelEmotes[emoteId],
-                },
-              };
-            }
-
-            emotesUsed.twitch[emoteId].ammount++;
-            emotesUsed.twitch[emoteId].realAmmount += emotesPos.length;
-          }
-        }
-      );
-
-      const updated7tv = find7tvEmotesInMessage(
-        seventvEmotes,
-        emotesUsed.seventv,
-        message.parameters
-      );
-      if (updated7tv) {
-        emotesChanged = true;
-        emotesUsed.seventv = updated7tv;
+      const timeKey = new Date().setMilliseconds(0);
+      if (!pendingToStore[timeKey]) {
+        pendingToStore[timeKey] = [];
       }
-
-      if (emotesChanged) {
-        const timeKey = new Date().setMilliseconds(0);
-        if (!pendingToStore[timeKey]) {
-          pendingToStore[timeKey] = [];
-        }
-        pendingToStore[timeKey].push(JSON.stringify(emotesUsed));
-      }
+      pendingToStore[timeKey].push(JSON.stringify(message));
     }
 
     log("Message recieved: " + JSON.stringify(message) + "\n\n");

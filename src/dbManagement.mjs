@@ -7,7 +7,7 @@ import {
 const error = (origin, error) => {
   const now = new Date();
   const time = `[${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}:${now.getMilliseconds()}]`;
-  console.error(time,  origin, error);
+  console.error(time, origin, error);
 };
 
 /**
@@ -46,9 +46,7 @@ export async function getEmoteUsage() {}
 export async function updateEmoteUsage(emoteUsage, date) {
   const promise = new Promise((resolve, reject) => {
     const client = new DynamoDBClient({ region: "eu-west-1" });
-    // const success = writeEmoteUsage(client, date, emoteUsage);
-    const success = true
-    console.debug(emotes);
+    const success = writeEmoteUsage(client, date, emoteUsage);
     client.destroy();
 
     if (success) {

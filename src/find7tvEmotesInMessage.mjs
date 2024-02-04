@@ -1,28 +1,26 @@
 /**
- * Finds 7tv emotes in the provided messages
+ * Finds 7tv emotes in the provided messages and update the provided object
+ * @param {Object.<string, {ammount: number, realAmmount: number}>} toUpdate
  * @param {Object.<string, {id: string, name: string, animated: boolean, listed: boolean}} seventvEmotes
- * @param {Object.<string, {ammount: number, realAmmount: number}>} emotesUsed
  * @param {string} message
- * 
- * @return {Object.<string, {ammount: number, realAmmount: number}> | undefined}
  */
 export default function find7tvEmotesInMessage(
+  toUpdate,
   seventvEmotes,
-  emotesUsed,
   message
 ) {
   if (!message) return {};
-  const newEmotes = false;
 
+  const updatedEmotes = [];
   message.split("\r\n").forEach((message, i) => {
     // TODO: Change part for ID
     message.split(" ").forEach((part) => {
       let is7tvEmote = seventvEmotes[part];
 
       if (is7tvEmote) {
-        newEmotes = true;
-        if (!emotesUsed[part]) {
-          emotesUsed[part] = {
+        updatedEmotes.push(part);
+        if (!toUpdate[part]) {
+          toUpdate[part] = {
             __li: i, // Last message index that updated this emote. This will keep the "ammount" field unique
             ammount: 1,
             realAmmount: 0,
@@ -32,21 +30,16 @@ export default function find7tvEmotesInMessage(
           };
         }
 
-        emotesUsed[part].realAmmount++;
-        if (emotesUsed[part].__li !== i) {
-          emotesUsed[part].ammount++;
-          emotesUsed[part].__li = i;
+        toUpdate[part].realAmmount++;
+        if (toUpdate[part].__li !== i) {
+          toUpdate[part].ammount++;
+          toUpdate[part].__li = i;
         }
       }
     });
   });
 
-  if (newEmotes) {
-    return Object.fromEntries(
-      Object.entries(emotesUsed).map(([k, v]) => {
-        delete v.__li;
-        return [k, v];
-      })
-    );
-  }
+  updatedEmotes.forEach((emote) => {
+    delete toUpdate[emote].__li;
+  });
 }
