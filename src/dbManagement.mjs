@@ -46,7 +46,9 @@ export async function getEmoteUsage() {}
 export async function updateEmoteUsage(emoteUsage, date) {
   const promise = new Promise((resolve, reject) => {
     const client = new DynamoDBClient({ region: "eu-west-1" });
-    const success = writeEmoteUsage(client, date, emoteUsage);
+    // const success = writeEmoteUsage(client, date, emoteUsage);
+    const success = true
+    console.debug(emotes);
     client.destroy();
 
     if (success) {

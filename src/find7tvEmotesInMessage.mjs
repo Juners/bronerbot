@@ -3,6 +3,8 @@
  * @param {Object.<string, {id: string, name: string, animated: boolean, listed: boolean}} seventvEmotes
  * @param {Object.<string, {ammount: number, realAmmount: number}>} emotesUsed
  * @param {string} message
+ * 
+ * @return {Object.<string, {ammount: number, realAmmount: number}> | undefined}
  */
 export default function find7tvEmotesInMessage(
   seventvEmotes,
@@ -10,6 +12,7 @@ export default function find7tvEmotesInMessage(
   message
 ) {
   if (!message) return {};
+  const newEmotes = false;
 
   message.split("\r\n").forEach((message, i) => {
     // TODO: Change part for ID
@@ -17,6 +20,7 @@ export default function find7tvEmotesInMessage(
       let is7tvEmote = seventvEmotes[part];
 
       if (is7tvEmote) {
+        newEmotes = true;
         if (!emotesUsed[part]) {
           emotesUsed[part] = {
             __li: i, // Last message index that updated this emote. This will keep the "ammount" field unique
@@ -37,10 +41,12 @@ export default function find7tvEmotesInMessage(
     });
   });
 
-  return Object.fromEntries(
-    Object.entries(emotesUsed).map(([k, v]) => {
-      delete v.__li;
-      return [k, v];
-    })
-  );
+  if (newEmotes) {
+    return Object.fromEntries(
+      Object.entries(emotesUsed).map(([k, v]) => {
+        delete v.__li;
+        return [k, v];
+      })
+    );
+  }
 }

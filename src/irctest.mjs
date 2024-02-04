@@ -1,11 +1,11 @@
-import wsPkg from "websocket";
+import { WebSocket } from "ws";
 
 import find7tvEmotesInMessage from "./find7tvEmotesInMessage.mjs";
 import parseMessage from "./formatMessage.mjs";
 import { getStoredEmoteData, updateEmoteUsage } from "./dbManagement.mjs";
 import SECRETS from "./secrets.mjs";
 
-const { client: WebSocketClient } = wsPkg;
+// const { client: WebSocketClient } = wsPkg;
 
 // const BROADCASTER_ID = 1027570501; // Myself
 const BROADCASTER_ID = 697578274; // Lina
@@ -14,7 +14,7 @@ const EMOTE_SET = "62d73f58d8e61c27b053c09a"; // Lina's emoteset
 const error = (origin, error) => {
   const now = new Date();
   const time = `[${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}:${now.getMilliseconds()}]`;
-  console.error(time,  origin, error);
+  console.error(time, origin, error);
 };
 
 const log = (message) => {
@@ -79,7 +79,7 @@ async function get7tvEmotes() {
   ) {
     last7tvRetrieval = Date.now();
 
-     // Queueing in parallel the update, so we don't block the storage of messages
+    // Queueing in parallel the update, so we don't block the storage of messages
     update7tvEmotesCached();
   }
 
@@ -101,7 +101,7 @@ async function update7tvEmotesCached() {
         },
       ])
     );
-    
+
     if (JSON.stringify(seventvEmoteData) !== JSON.stringify(new7tvData)) {
       seventvEmoteData = new7tvData;
     }
@@ -124,7 +124,7 @@ async function getChannelEmotes() {
   ) {
     lastChannelRetrieval = Date.now();
 
-     // Queueing in parallel the update, so we don't block the storage of messages
+    // Queueing in parallel the update, so we don't block the storage of messages
     updateChannelEmotesCached();
   }
 
@@ -156,7 +156,7 @@ async function updateChannelEmotesCached() {
         },
       ])
     );
-    
+
     if (JSON.stringify(twitchEmoteData) !== JSON.stringify(newChannelData)) {
       twitchEmoteData = newChannelData;
     }
@@ -204,28 +204,36 @@ setInterval(() => {
 }, 1000);
 
 var emotesUsed = { twitch: {}, seventv: {} };
-function onConnect(connection) {
+/**
+ *
+ * @this {WebSocket}
+ */
+async function onConnect() {
+  // emotesUsed = await getStoredEmoteData();
+
   log("WebSocket Client Connected");
 
   //   validateAccessToken(SECRETS.APP_TOKEN);
 
-  connection.sendUTF("CAP REQ :twitch.tv/tags twitch.tv/commands");
-  connection.sendUTF(`PASS oauth:${SECRETS.APP_TOKEN}`);
-  connection.sendUTF("NICK broner_bot");
+  this.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
+  this.send(`PASS oauth:${SECRETS.APP_TOKEN}`);
+  this.send("NICK broner_bot");
 
-  connection.sendUTF("JOIN #nekrolina");
+  this.send("JOIN #juners");
 
-  connection.on("close", function (code, desc) {
+  this.on("close", function (code, desc) {
     log(`Socket closing with code ${code}. Message: ${desc}`);
     // TODO: Once it closes, restart it with increments of 2^attempt seconds
   });
 
-  connection.on("error", function (error) {
+  this.on("error", function (error) {
     log("Error recieved: " + error.message);
   });
 
-  connection.on("message", async function (data) {
-    const message = parseMessage(data.utf8Data);
+  this.on("message", async function (data) {
+    const utf8Data = new TextDecoder().decode(data);
+
+    const message = parseMessage(utf8Data);
     if (!message) {
       log("Unkown message recived: " + JSON.stringify(data));
 
@@ -233,16 +241,19 @@ function onConnect(connection) {
     }
 
     if (message.command.command === "PING") {
-      connection.pong(message.parameters);
+      this.pong(message.parameters);
       log("ponging");
     } else if (message.command.command === "PRIVMSG") {
       const channelEmotes = await getChannelEmotes();
       const seventvEmotes = await get7tvEmotes();
       // const globalEmotes = await getGlobalEmotes(); // TODO: Maybe use these? I can't really be bothered tbh
 
+      let emotesChanged = false;
+
       // First, we get the channel twitch emotes
       Object.entries(message.tags.emotes || {}).forEach(
         ([emoteId, emotesPos]) => {
+          emotesChanged = true;
           if (channelEmotes[emoteId]) {
             if (emotesUsed.twitch[emoteId] === undefined) {
               emotesUsed.twitch[emoteId] = {
@@ -260,14 +271,23 @@ function onConnect(connection) {
         }
       );
 
-      emotesUsed.seventv = find7tvEmotesInMessage(
+      const updated7tv = find7tvEmotesInMessage(
         seventvEmotes,
         emotesUsed.seventv,
         message.parameters
       );
+      if (updated7tv) {
+        emotesChanged = true;
+        emotesUsed.seventv = updated7tv;
+      }
 
-      const timeKey = new Date().setMilliseconds(0);
-      pendingToStore[timeKey] = JSON.stringify(emotesUsed);
+      if (emotesChanged) {
+        const timeKey = new Date().setMilliseconds(0);
+        if (!pendingToStore[timeKey]) {
+          pendingToStore[timeKey] = [];
+        }
+        pendingToStore[timeKey].push(JSON.stringify(emotesUsed));
+      }
     }
 
     log("Message recieved: " + JSON.stringify(message) + "\n\n");
@@ -275,21 +295,15 @@ function onConnect(connection) {
 }
 
 function wakeupHoney() {
-  const client = new WebSocketClient();
+  const client = new WebSocket("ws://irc-ws.chat.twitch.tv:80");
 
-  client.on("connectFailed", function (error) {
+  client.on("error", function (error) {
     log("Connect Error: " + error.toString());
   });
 
-  client.on("connect", async function (connection) {
-    emotesUsed = await getStoredEmoteData();
+  client.on("open", onConnect);
 
-    onConnect(connection);
-
-    return false;
-  });
-
-  client.connect("ws://irc-ws.chat.twitch.tv:80");
+  // client.connect("ws://irc-ws.chat.twitch.tv:80");
 }
 
 wakeupHoney();
