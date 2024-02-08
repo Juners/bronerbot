@@ -190,6 +190,7 @@ async function updateChannelEmotesCached() {
 //   return cachedGlobalEmoteData;
 // }
 
+let processing = {};
 // TODO: I should save message-id in the db to prevent duplicates, need to check how cost effective this would be with AWS
 let pendingToStore = {};
 setInterval(() => {
@@ -197,32 +198,41 @@ setInterval(() => {
     log("Awaiting storage: " + JSON.stringify(Object.keys(pendingToStore)));
     const timeKey = new Date().setMilliseconds(0) - 1000; // 1s delay for storage
     let messages = pendingToStore[timeKey];
-    if (messages) {
+    if (messages && !processing[timeKey]) {
+      processing[timeKey] = true;
       updateEmotes(messages, timeKey)
         .then(() => {
-          delete pendingToStore[timeKey];
           log("Stored correctly timeKey=" + timeKey);
         })
         .catch(() => {
           error("Failed storage of timeKey=" + timeKey, e);
           const newTimeKey = new Date().setMilliseconds(0) + 1000; // Moving it to the next try
           pendingToStore[newTimeKey] = [...messages];
+        })
+        .finally(() => {
+          delete processing[timeKey];
           delete pendingToStore[timeKey];
         });
     }
   }
 }, 1000); // Each second
 
+let leftoverProcessing = {};
 setInterval(() => {
   try {
     if (Object.keys(pendingToStore).length > 0) {
       // Checking if there are leftover log operations, with a 30s margin for slow ongoing ones
       const timeKey = new Date().setMilliseconds(0) - 30000;
       Object.entries(pendingToStore).forEach(([key, pending]) => {
-        if (key < timeKey) {
-          updateEmotes(pending, key).then(() => {
-            delete pendingToStore[key];
-          });
+        if (key < timeKey && !leftoverProcessing[key]) {
+          leftoverProcessing[key] = true;
+          updateEmotes(pending, key)
+            .then(() => {
+              delete pendingToStore[key];
+            })
+            .finally(() => {
+              delete leftoverProcessing[key];
+            });
         }
       });
     }
