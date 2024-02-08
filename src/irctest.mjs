@@ -12,17 +12,17 @@ const EMOTE_SET = "62d73f58d8e61c27b053c09a"; // Lina's emoteset
 
 let emotesUsed = { twitch: {}, seventv: {} };
 
-const error = (origin, error) => {
+export function error(origin, error) {
   const now = new Date();
   const time = `[${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}:${now.getMilliseconds()}]`;
   console.error(time, origin, error);
-};
+}
 
-const log = (message) => {
+export function log(message) {
   const now = new Date();
   const time = `[${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}:${now.getMilliseconds()}]`;
   console.log(time + " " + message);
-};
+}
 
 // async function getAccessToken() {
 //   try {
@@ -194,20 +194,46 @@ async function updateChannelEmotesCached() {
 let pendingToStore = {};
 setInterval(() => {
   if (Object.keys(pendingToStore).length > 0) {
+    log("Awaiting storage: " + JSON.stringify(Object.keys(pendingToStore)));
     const timeKey = new Date().setMilliseconds(0) - 1000; // 1s delay for storage
     let messages = pendingToStore[timeKey];
     if (messages) {
       updateEmotes(messages, timeKey)
         .then(() => {
           delete pendingToStore[timeKey];
+          log("Stored correctly timeKey=" + timeKey);
         })
         .catch(() => {
+          error("Failed storage of timeKey=" + timeKey, e);
           const newTimeKey = new Date().setMilliseconds(0) + 1000; // Moving it to the next try
-          pendingToStore[newTimeKey];
+          pendingToStore[newTimeKey] = [...messages];
+          delete pendingToStore[timeKey];
         });
     }
   }
-}, 1000);
+}, 1000); // Each second
+
+setInterval(() => {
+  try {
+    if (Object.keys(pendingToStore).length > 0) {
+      // Checking if there are leftover log operations, with a 30s margin for slow ongoing ones
+      const timeKey = new Date().setMilliseconds(0) - 30000;
+      Object.entries(pendingToStore).forEach(([key, pending]) => {
+        if (key < timeKey) {
+          updateEmotes(pending, key).then(() => {
+            delete pendingToStore[key];
+          });
+        }
+      });
+    }
+  } catch (e) {
+    error("catchup interval", e);
+  }
+}, 30000); // Each 30s
+
+setInterval(() => {
+  log(JSON.stringify(emotesUsed));
+}, 60 * 1000); // Each hour
 
 async function updateEmotes(messages, timeKey) {
   try {
@@ -229,18 +255,21 @@ async function updateEmotes(messages, timeKey) {
       );
     });
 
-    await updateEmoteUsage(JSON.stringify(emotesUsed), timeKey);
+    const success = await updateEmoteUsage(JSON.stringify(emotesUsed), timeKey);
 
-    return Promise.resolve();
+    return success ? Promise.resolve() : Promise.reject();
   } catch (error) {
     return Promise.reject();
   }
 }
 
+var attempt = 0;
 /**
  * @this {WebSocket}
  */
 async function onConnect() {
+  attempt = 0;
+
   get7tvEmotes();
   getChannelEmotes();
   emotesUsed = await getStoredEmoteData();
@@ -254,11 +283,6 @@ async function onConnect() {
   this.send("NICK broner_bot");
 
   this.send("JOIN #nekrolina");
-
-  this.on("close", function (code, desc) {
-    log(`Socket closing with code ${code}. Message: ${desc}`);
-    // TODO: Once it closes, restart it with increments of 2^attempt seconds
-  });
 
   this.on("error", function (error) {
     log("Error recieved: " + error.message);
@@ -296,11 +320,29 @@ function wakeupHoney() {
 
   client.on("error", function (error) {
     log("Connect Error: " + error.toString());
+
+    tryOpening();
   });
 
   client.on("open", onConnect);
 
+  client.on("close", function (code, data) {
+    const message = new TextDecoder().decode(data);
+    log(`Socket closing with code ${code}. Message: ${message}`);
+
+    tryOpening();
+  });
+
   // client.connect("ws://irc-ws.chat.twitch.tv:80");
+}
+
+function tryOpening() {
+  log(`"Attempting to reopen for the ${++attempt}th time`);
+  if (attempt > 8) attempt = 8; // Max 5 minutes each retry
+  // Once it closes, restarts it with increments of 2^attempt seconds
+  setTimeout(() => {
+    wakeupHoney();
+  }, Math.pow(2, attempt++));
 }
 
 wakeupHoney();

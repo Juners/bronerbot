@@ -4,11 +4,7 @@ import {
   ScanCommand,
 } from "@aws-sdk/client-dynamodb";
 
-const error = (origin, error) => {
-  const now = new Date();
-  const time = `[${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}:${now.getMilliseconds()}]`;
-  console.error(time, origin, error);
-};
+import { error, log } from "./irctest.mjs";
 
 /**
  *
@@ -18,7 +14,8 @@ const error = (origin, error) => {
  */
 async function writeEmoteUsage(client, date, emotes) {
   try {
-    console.debug(emotes);
+    log("Writting to DB timeKey=" + date);
+
     const m = new Date().getMonth();
     const params = {
       TableName: "lina_emotes_data",
@@ -37,26 +34,18 @@ async function writeEmoteUsage(client, date, emotes) {
     return true;
   } catch (e) {
     error("writeEmoteUsage", e);
-    return null;
+    return false;
   }
 }
 
 export async function getEmoteUsage() {}
 
 export async function updateEmoteUsage(emoteUsage, date) {
-  const promise = new Promise((resolve, reject) => {
-    const client = new DynamoDBClient({ region: "eu-west-1" });
-    const success = writeEmoteUsage(client, date, emoteUsage);
-    client.destroy();
+  const client = new DynamoDBClient({ region: "eu-west-1" });
+  const success = await writeEmoteUsage(client, date, emoteUsage);
+  client.destroy();
 
-    if (success) {
-      resolve();
-    } else {
-      reject();
-    }
-  });
-
-  return promise;
+  return success;
 }
 
 export async function getStoredEmoteData() {

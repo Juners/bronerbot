@@ -5,12 +5,13 @@
   "main": "src/irctest.mjs",
   "type": "module",
   "scripts": {
-    "start": "pm2 start src/irctest.mjs",
+    "start": "pm2 start src/irctest.mjs --cron_restart: '0 5 * * *' --exp-backoff-restart-delay=100 ",
     "list": "pm2 list",
     "restart": "pm2 restart all",
     "stop": "pm2 stop all",
     "monitor": "pm2 monit",
     "logs": "pm2 logs",
+    "flush": "pm2 flush",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
