@@ -1,7 +1,7 @@
 /**
  * Finds 7tv emotes in the provided messages and update the provided object
- * @param {Object.<string, {ammount: number, realAmmount: number}>} toUpdate
- * @param {Object.<string, {id: string, name: string, animated: boolean, listed: boolean}} seventvEmotes
+ * @param {Object<string, {ammount: number, realAmmount: number}>} toUpdate
+ * @param {Object<string, string>} seventvEmotes A table to get 7tv ids from names
  * @param {string} message
  */
 export default function find7tvEmotesInMessage(
@@ -13,27 +13,23 @@ export default function find7tvEmotesInMessage(
 
   const updatedEmotes = [];
   message.split("\r\n").forEach((message, i) => {
-    // TODO: Change part for ID
     message.split(" ").forEach((part) => {
-      let is7tvEmote = seventvEmotes[part];
+      let emoteId = seventvEmotes[part];
 
-      if (is7tvEmote) {
-        updatedEmotes.push(part);
-        if (!toUpdate[part]) {
-          toUpdate[part] = {
+      if (emoteId) {
+        updatedEmotes.push(emoteId);
+        if (!toUpdate[emoteId]) {
+          toUpdate[emoteId] = {
             __li: i, // Last message index that updated this emote. This will keep the "ammount" field unique
             ammount: 1,
             realAmmount: 0,
-            data: {
-              ...seventvEmotes[part],
-            },
           };
         }
 
-        toUpdate[part].realAmmount++;
-        if (toUpdate[part].__li !== i) {
-          toUpdate[part].ammount++;
-          toUpdate[part].__li = i;
+        toUpdate[emoteId].realAmmount++;
+        if (toUpdate[emoteId].__li !== i) {
+          toUpdate[emoteId].ammount++;
+          toUpdate[emoteId].__li = i;
         }
       }
     });

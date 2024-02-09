@@ -1,31 +1,28 @@
 /**
  * Finds twitch emotes in the provided messages and updates the provided object
- * @param {Object.<string, {ammount: number, realAmmount: number}> | undefined} toUpdate
- * @param {Object.<string, {tier: number, name: string, scale: string, theme_mode: string, format: string}} channelEmotes
- * @param {Array[string, number]} messageEmotes
+ * @param {Object<string, {ammount: number, realAmmount: number}> | undefined} toUpdate
+ * @param {Array<string>} channelEmotes
+ * @param {Object<string, Array<{startPosition: number, endPosition: number}>>} messageTagEmotes
  *
  */
 export default function updateChannelEmotesInMessageIn(
   toUpdate,
   channelEmotes,
-  messageEmotes
+  messageTagEmotes
 ) {
-  if (!messageEmotes) return {};
+  if (!messageTagEmotes) return {};
 
-  Object.entries(messageEmotes).forEach(([emoteId, emotesPos]) => {
+  Object.entries(messageTagEmotes).forEach(([emoteId, emotePositions]) => {
     if (channelEmotes[emoteId]) {
       if (toUpdate[emoteId] === undefined) {
         toUpdate[emoteId] = {
           realAmmount: 0,
           ammount: 0,
-          data: {
-            ...channelEmotes[emoteId],
-          },
         };
       }
 
       toUpdate[emoteId].ammount++;
-      toUpdate[emoteId].realAmmount += emotesPos.length;
+      toUpdate[emoteId].realAmmount += emotePositions.length;
     }
   });
 }

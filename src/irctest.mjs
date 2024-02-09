@@ -66,16 +66,16 @@ async function validateAccessToken(token) {
 }
 
 /**
- * @type {Object.<string, {id: string, name: string, animated: boolean, listed: boolean} }>}
+ * @type { Object<string, string> }
  */
-let seventvEmoteData = {};
+let seventvEmoteCache = {};
 let last7tvRetrieval = null;
 function get7tvEmotes() {
   // Checking each minute
   // https://7tv.io/v3/emote-sets/62d73f58d8e61c27b053c09a
   if (
     last7tvRetrieval === null ||
-    seventvEmoteData == null ||
+    seventvEmoteCache == null ||
     Date.now() - last7tvRetrieval > 60 * 1000
   ) {
     last7tvRetrieval = Date.now();
@@ -84,7 +84,7 @@ function get7tvEmotes() {
     update7tvEmotesCached();
   }
 
-  return seventvEmoteData;
+  return seventvEmoteCache;
 }
 
 async function update7tvEmotesCached() {
@@ -92,19 +92,10 @@ async function update7tvEmotesCached() {
     const call = await fetch(`https://7tv.io/v3/emote-sets/${EMOTE_SET}`);
 
     const json = await call.json();
-    const new7tvData = Object.fromEntries(
-      json.emotes.map((emote) => [
-        emote.name,
-        {
-          id: emote.id,
-          animated: emote.data.animated,
-          listed: emote.data.listed,
-        },
-      ])
-    );
+    const new7tvData = json.emotes.map((emote) => emote.id);
 
-    if (JSON.stringify(seventvEmoteData) !== JSON.stringify(new7tvData)) {
-      seventvEmoteData = new7tvData;
+    if (JSON.stringify(seventvEmoteCache) !== JSON.stringify(new7tvData)) {
+      seventvEmoteCache = new7tvData;
     }
   } catch (error) {
     error("update7tvEmotesCached", error);
@@ -112,15 +103,15 @@ async function update7tvEmotesCached() {
 }
 
 /**
- * @type {Object.<string, {tier: 1000|2000|3000, name: string, scale: ["1.0", "2.0", "3.0"], theme_mode: ["light", "dark"], format: ["static", "animated"]}}>}
+ * @type { string[] }
  */
-let twitchEmoteData = {};
+let twitchEmoteIds = [];
 let lastChannelRetrieval = null;
 function getChannelEmotes() {
   // Checking each minute
   if (
     lastChannelRetrieval === null ||
-    twitchEmoteData == null ||
+    twitchEmoteIds == null ||
     Date.now() - lastChannelRetrieval > 60 * 1000
   ) {
     lastChannelRetrieval = Date.now();
@@ -129,7 +120,7 @@ function getChannelEmotes() {
     updateChannelEmotesCached();
   }
 
-  return twitchEmoteData;
+  return twitchEmoteIds;
 }
 
 async function updateChannelEmotesCached() {
@@ -145,21 +136,10 @@ async function updateChannelEmotesCached() {
     );
 
     const json = await call.json();
-    const newChannelData = Object.fromEntries(
-      json.data.map((emote) => [
-        emote.id,
-        {
-          tier: emote.tier,
-          name: emote.name,
-          scale: emote.scale,
-          theme_mode: emote.theme_mode,
-          format: emote.format,
-        },
-      ])
-    );
+    const newChannelData = json.data.map((emote) => emote.id);
 
-    if (JSON.stringify(twitchEmoteData) !== JSON.stringify(newChannelData)) {
-      twitchEmoteData = newChannelData;
+    if (JSON.stringify(twitchEmoteIds) !== JSON.stringify(newChannelData)) {
+      twitchEmoteIds = newChannelData;
     }
   } catch (error) {
     error("updateChannelEmotesCached", error);
@@ -243,7 +223,7 @@ setInterval(() => {
 
 setInterval(() => {
   log(JSON.stringify(emotesUsed));
-}, 60 * 1000); // Each hour
+}, 60 * 60 * 1000); // Each hour
 
 async function updateEmotes(messages, timeKey) {
   try {
