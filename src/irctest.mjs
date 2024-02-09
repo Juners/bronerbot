@@ -262,7 +262,11 @@ async function onConnect() {
 
   get7tvEmotes();
   getChannelEmotes();
-  emotesUsed = await getStoredEmoteData();
+  const storedData = await getStoredEmoteData();
+  // We compare to see if the stored data is smaller, aka has less information
+  if (JSON.stringify(storedData) < JSON.stringify(emotesUsed)) {
+    emotesUsed = storedData;
+  }
 
   log("WebSocket Client Connected");
 
