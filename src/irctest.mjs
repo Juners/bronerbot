@@ -92,7 +92,9 @@ async function update7tvEmotesCached() {
     const call = await fetch(`https://7tv.io/v3/emote-sets/${EMOTE_SET}`);
 
     const json = await call.json();
-    const new7tvData = json.emotes.map((emote) => emote.id);
+    const new7tvData = Object.fromEntries(
+      json.emotes.map((emote) => [emote.name, emote.id])
+    );
 
     if (JSON.stringify(seventvEmoteCache) !== JSON.stringify(new7tvData)) {
       seventvEmoteCache = new7tvData;
@@ -221,9 +223,9 @@ setInterval(() => {
   }
 }, 30000); // Each 30s
 
-setInterval(() => {
-  log(JSON.stringify(emotesUsed));
-}, 60 * 60 * 1000); // Each hour
+// setInterval(() => {
+//   log(JSON.stringify(emotesUsed));
+// }, 60 * 60 * 1000); // Each hour
 
 async function updateEmotes(messages, timeKey) {
   try {
